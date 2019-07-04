@@ -14,7 +14,7 @@ import (
 )
 
 type App struct {
-	BusController controller.BusController
+	BusControllers []controller.BusController
 }
 
 var (
@@ -26,19 +26,24 @@ var (
 func init() {
 	log.Init(os.Stdout, logrus.InfoLevel)
 
-	err := envconfig.Process("local", &cfg)
+	err := envconfig.Process("env", &cfg)
 	if err != nil {
 		logrus.WithError(err).Fatal(err.Error())
 	}
 
 	repository := &msg.MessageMockRepository{}
-	mqConsumer, err := controller.InitRabbitController(cfg.SrvName, "consumer", repository)
+	mqConsumer, err := controller.InitRabbitController(cfg, repository)
 	if err != nil {
-		logrus.WithError(err).Fatal("Error connecting to bus")
+		logrus.WithError(err).Fatal("Error connecting to Rabbit Bus")
+	}
+
+	kafkaConsumer, err := controller.InitKafkaController("fast-data-dev", "kafka-consumer")
+	if err != nil {
+		logrus.WithError(err).Fatal("Error connecting to Kafka Bus")
 	}
 
 	app = App{
-		BusController: mqConsumer,
+		BusControllers: []controller.BusController{mqConsumer, kafkaConsumer},
 	}
 
 }
@@ -46,19 +51,19 @@ func init() {
 func main() {
 
 	logger := log.NewLogger(loggerCfg, "CONSUMER_LOGGER")
-	logger.Print("Starting server " + cfg.SrvName + " on port " + cfg.Port)
 
 	logger.Println(" [*] Waiting for logs. To exit press CTRL+C")
 
-	go func() {
-		for {
-			err := app.BusController.ConsumeMessages(logger)
-			if err != nil {
-				logger.WithError(err).Error("MAIN: Error consuming messages")
+	for index := range app.BusControllers {
+		go func(bC controller.BusController) {
+			for {
+				err := bC.ConsumeMessages(logger)
+				if err != nil {
+					logger.WithError(err).Error("MAIN: Error consuming messages")
+				}
 			}
-		}
-
-	}()
+		}(app.BusControllers[index])
+	}
 
 	logger.Println("Ready to produce and consume")
 

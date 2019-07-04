@@ -1,7 +1,9 @@
-package bus
+package controller
 
 import (
 	"bytes"
+	"fmt"
+	cfg "go_consumer/config"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -10,33 +12,34 @@ import (
 )
 
 type RabbitController struct {
-	Q      amqp.Queue
-	Ch     *amqp.Channel
-	Conn   *amqp.Connection
-	Name   string
-	busErr error
-	mR     msg.MessageRepository
+	Q           amqp.Queue
+	Ch          *amqp.Channel
+	Conn        *amqp.Connection
+	Name        string
+	busErr      error
+	messageRepo msg.MessageRepository
 }
 
-func InitRabbitController(srvName string, name string, repository msg.MessageRepository) (*RabbitController, error) {
-	config := &RabbitController{
-		Name: name,
-		mR:   repository,
+func InitRabbitController(config cfg.ServiceConfig, repository msg.MessageRepository) (*RabbitController, error) {
+	controller := &RabbitController{
+		Name:        config.SrvName,
+		messageRepo: repository,
 	}
 
-	config.Conn, config.busErr = amqp.Dial("amqp://guest:guest@172.17.0.2:5672")
-	if config.busErr != nil {
-		err := errors.Wrapf(config.busErr, "REPO ERROR")
+	controller.Conn, controller.busErr = amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s",
+		config.RabbitUser, config.RabbitPass, config.RabbitURL, config.RabbitPort))
+	if controller.busErr != nil {
+		err := errors.Wrapf(controller.busErr, "REPO ERROR")
 		return nil, err
 	}
 
-	config.Ch, config.busErr = config.Conn.Channel()
-	if config.busErr != nil {
-		err := errors.Wrapf(config.busErr, "REPO ERROR")
+	controller.Ch, controller.busErr = controller.Conn.Channel()
+	if controller.busErr != nil {
+		err := errors.Wrapf(controller.busErr, "REPO ERROR")
 		return nil, err
 	}
 
-	return config, nil
+	return controller, nil
 }
 
 func (b *RabbitController) ConsumeMessages(logger *log.Entry) error {
@@ -58,7 +61,7 @@ func (b *RabbitController) ConsumeMessages(logger *log.Entry) error {
 
 			buffer.Write(d.Body)
 			logger.WithField("consumer: ", b.Name).Infof("Message received %s", d.Body)
-			err := b.mR.SaveMessage(d.Body, logger)
+			err := b.messageRepo.SaveMessage(d.Body, logger)
 			if err != nil {
 				logger.WithError(err).Error("Error saving message")
 			}
