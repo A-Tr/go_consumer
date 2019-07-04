@@ -3,19 +3,20 @@ package controller
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/sirupsen/logrus"
+	cfg "go_consumer/config"
 	msg "go_consumer/messages"
 )
 
 type KafkaController struct {
-	consumer *kafka.Consumer
+	consumer    *kafka.Consumer
 	messageRepo msg.MessageRepository
 }
 
-func InitKafkaController(URL, consumerName string, repository msg.MessageRepository) (*KafkaController, error) {
+func InitKafkaController(config cfg.ServiceConfig, repository msg.MessageRepository) (*KafkaController, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers":     URL,
+		"bootstrap.servers":     config.KafkaUrl,
 		"broker.address.family": "v4",
-		"group.id":              consumerName,
+		"group.id":              config.KafkaConsumer,
 		"session.timeout.ms":    6000,
 		"auto.offset.reset":     "earliest",
 	})
@@ -23,7 +24,7 @@ func InitKafkaController(URL, consumerName string, repository msg.MessageReposit
 		return nil, err
 	}
 
-	err = c.Subscribe("SOMETOPIC", nil)
+	err = c.Subscribe(config.KafkaTopic, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,6 @@ func InitKafkaController(URL, consumerName string, repository msg.MessageReposit
 func (c *KafkaController) ConsumeMessages(logger *logrus.Entry) error {
 	for {
 		ev := c.consumer.Poll(100)
-
 		if ev == nil {
 			continue
 		}

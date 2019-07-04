@@ -6,8 +6,15 @@ type RabbitConfig struct {
 	RabbitURL  string `default:"localhost"`
 	RabbitPort string `default:"5672"`
 }
+
+type KafkaConfig struct {
+	KafkaUrl      string `default:"fast-data-dev"`
+	KafkaConsumer string `default:"kafka-consumer"`
+	KafkaTopic    string `default:"SOMETOPIC"`
+}
+
 type ServiceConfig struct {
-	Port    string `default:":3000"`
 	SrvName string `default:"go_consumer"`
 	RabbitConfig
+	KafkaConfig
 }
