@@ -50,7 +50,7 @@ func (b *RabbitController) ConsumeMessages(logger *log.Entry) error {
 			return b.busErr
 		}
 
-		msgs, err := b.Ch.Consume("SOMEQUEUE", b.Name, true, false, false, false, nil)
+		msgs, err := b.Ch.Consume("SOMEQUEUE", b.Name, false, false, false, false, nil)
 		if err != nil {
 			logger.WithError(err).Error("Error reading messages")
 			return err
@@ -64,8 +64,9 @@ func (b *RabbitController) ConsumeMessages(logger *log.Entry) error {
 			err := b.messageRepo.SaveMessage(d.Body, logger)
 			if err != nil {
 				logger.WithError(err).Error("Error saving message")
+				return err
 			}
-			return err
+			d.Ack(true)
 		}
 		defer b.Ch.Close()
 	}

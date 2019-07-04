@@ -37,7 +37,7 @@ func init() {
 		logrus.WithError(err).Fatal("Error connecting to Rabbit Bus")
 	}
 
-	kafkaConsumer, err := controller.InitKafkaController("fast-data-dev", "kafka-consumer")
+	kafkaConsumer, err := controller.InitKafkaController("fast-data-dev", "kafka-consumer", repository)
 	if err != nil {
 		logrus.WithError(err).Fatal("Error connecting to Kafka Bus")
 	}

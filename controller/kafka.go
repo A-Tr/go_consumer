@@ -3,13 +3,15 @@ package controller
 import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/sirupsen/logrus"
+	msg "go_consumer/messages"
 )
 
 type KafkaController struct {
 	consumer *kafka.Consumer
+	messageRepo msg.MessageRepository
 }
 
-func InitKafkaController(URL, consumerName string) (*KafkaController, error) {
+func InitKafkaController(URL, consumerName string, repository msg.MessageRepository) (*KafkaController, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":     URL,
 		"broker.address.family": "v4",
@@ -26,7 +28,7 @@ func InitKafkaController(URL, consumerName string) (*KafkaController, error) {
 		return nil, err
 	}
 
-	kC := &KafkaController{consumer: c}
+	kC := &KafkaController{consumer: c, messageRepo: repository}
 
 	return kC, nil
 }
@@ -46,10 +48,15 @@ func (c *KafkaController) ConsumeMessages(logger *logrus.Entry) error {
 			if e.Headers != nil {
 				logger.Infof("%% Headers: %v\n", e.Headers)
 			}
+
+			err := c.messageRepo.SaveMessage(e.Value, logger)
+			if err != nil {
+				logger.WithError(err).Errorf("Error Saving message: %v", err)
+			}
 		case kafka.Error:
-			logger.Errorf("Error: %v: %v\n", e.Code(), e)
+			logger.WithError(e).Errorf("Error: %v: %v\n", e.Code(), e)
 		default:
-			logger.Infof("Ignored %v\n", e)
+			continue
 		}
 	}
 }
